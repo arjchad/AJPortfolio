@@ -9,116 +9,113 @@ const RotatingSphere = ({ words = [] }) => {
     useEffect(() => {
         if (!mountRef.current) return;
 
-        // Get the actual size of the container
+        // Get container size
         const width = mountRef.current.clientWidth;
         const height = mountRef.current.clientHeight;
 
-        // Scene, Camera, and Renderer Setup
+        // Scene, Camera, Renderer
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+        const camera = new THREE.PerspectiveCamera(70, width / height, 0.1, 1000);
         camera.position.z = 12;
 
         const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
         renderer.setSize(width, height);
         mountRef.current.appendChild(renderer.domElement);
 
-        // Sphere Setup
-        const sphereGeometry = new THREE.SphereGeometry(5, 32, 32);
+        const parentGroup = new THREE.Group();
+        scene.add(parentGroup);
+
+        // Sphere
+        const sphereGeometry = new THREE.SphereGeometry(5, 28, 28);
         const sphereMaterial = new THREE.MeshBasicMaterial({
             wireframe: true,
-            color: 0x00ffff,
+            color: 0xFBC02D,
         });
         const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-        scene.add(sphere);
+        parentGroup.add(sphere);
 
         // Words Group
         const wordGroup = new THREE.Group();
-        scene.add(wordGroup);
+        parentGroup.add(wordGroup);
 
-        // Load and place words outside the sphere
+        // Tilt the Parent Group around the Z-axis
+        const tiltAngle = Math.PI / -8; // 30 degrees tilt
+        parentGroup.rotation.z = tiltAngle;
+
+        // Define the original axis (0,1,0) - global Y
+        let axis = new THREE.Vector3(0, 1, 0);
+
+        // Rotate this axis by tiltAngle around Z to align with the parent's local tilted axis
+        const zAxis = new THREE.Vector3(0,0,1);
+        axis.applyAxisAngle(zAxis, tiltAngle);
+
+        const rotationQuaternion = new THREE.Quaternion();
+        const rotationSpeed = 0.0033; // Adjust speed
+
+        // Load words
         const loader = new FontLoader();
+        const placedPositions = [];
+        const minDistance = 1.8;
+
         loader.load(
             "https://threejs.org/examples/fonts/helvetiker_regular.typeface.json",
             (font) => {
                 words.forEach((word) => {
+                    let positionAccepted = false;
+                    let theta, phi, position;
+                    while (!positionAccepted) {
+                        theta = Math.random() * Math.PI * 2;
+                        const phiMin = Math.PI / 3;
+                        const phiMax = (2 * Math.PI) / 3;
+                        phi = phiMin + (phiMax - phiMin) * Math.random();
+                        const radius = 5.85;
+
+                        const x = radius * Math.sin(phi) * Math.cos(theta);
+                        const y = radius * Math.cos(phi);
+                        const z = radius * Math.sin(phi) * Math.sin(theta);
+
+                        position = new THREE.Vector3(x, y, z);
+                        positionAccepted = placedPositions.every((prev) => position.distanceTo(prev) >= minDistance);
+                    }
+
+                    placedPositions.push(position);
+
                     const textGeometry = new TextGeometry(word, {
                         font: font,
-                        size: 0.5,
-                        height: 0.05,
+                        size: 0.38,
+                        height: 0.038,
                     });
                     const textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
                     const textMesh = new THREE.Mesh(textGeometry, textMaterial);
 
-                    // Position words slightly outside the sphere radius
-                    const theta = Math.random() * Math.PI * 2;
-                    const phi = Math.random() * Math.PI;
-                    const radius = 6;
-                    textMesh.position.setFromSphericalCoords(radius, phi, theta);
-
-                    // Make the text face outward:
-                    // Face toward the center first
+                    textMesh.position.copy(position);
                     textMesh.lookAt(0, 0, 0);
-                    // Rotate 180 degrees to face outward
                     textMesh.rotateY(Math.PI);
-
                     wordGroup.add(textMesh);
                 });
             }
         );
 
-        // Mouse Interactivity
-        const mouse = { x: 0, y: 0 };
-        const boundaryRadius = 500; // Adjust sensitivity as desired
-
-        const onMouseMove = (event) => {
-            const rect = mountRef.current.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-
-            // Mouse positions relative to the container's center
-            const relX = event.clientX - centerX;
-            const relY = event.clientY - centerY;
-
-            mouse.x = relX / (rect.width / 2);
-            mouse.y = -(relY / (rect.height / 2));
-
-            const dist = Math.sqrt(relX * relX + relY * relY);
-            mouse.insideBoundary = dist < boundaryRadius;
-        };
-
-        document.addEventListener("mousemove", onMouseMove);
-
         // Animation Loop
         const animate = () => {
             requestAnimationFrame(animate);
 
-            // Baseline rotation: always rotate
-            sphere.rotation.y += 0.005;
-
-            // If inside boundary, add additional rotation based on mouse position
-            if (mouse.insideBoundary) {
-                sphere.rotation.x += mouse.y * 0.03;
-                sphere.rotation.y += mouse.x * 0.03;
-            }
-
-            // Sync word group with sphere rotation
-            wordGroup.rotation.x = sphere.rotation.x;
-            wordGroup.rotation.y = sphere.rotation.y;
+            // Rotate around the now tilted local axis
+            rotationQuaternion.setFromAxisAngle(axis, rotationSpeed);
+            parentGroup.quaternion.multiplyQuaternions(rotationQuaternion, parentGroup.quaternion);
 
             renderer.render(scene, camera);
         };
         animate();
 
-        // Cleanup on unmount
+        // Cleanup
         return () => {
             if (renderer.domElement && mountRef.current) {
                 mountRef.current.removeChild(renderer.domElement);
             }
-            document.removeEventListener("mousemove", onMouseMove);
         };
     }, [words]);
 
-    // Ensure this div has a known size and is centered by the parent container
     return <div ref={mountRef} style={{ width: '500px', height: '500px' }} />;
 };
 

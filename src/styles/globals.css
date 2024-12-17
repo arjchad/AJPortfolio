@@ -8,6 +8,7 @@ body {
     background: #0d0d0d;
     color: #f0f0f0;
     font-family: sans-serif;
+    cursor: url('/public/cursor.gif') 16 16, auto;
 }
 /* Example of a scroll-timeline-driven animation */
 @container query(supports: scroll-timeline) {
