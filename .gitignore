@@ -28,7 +28,7 @@ dist/
 __MACOSX/
 
 # VSCode settings
-.vscode/
+.idea/
 
 # Large binary files
 *.log
