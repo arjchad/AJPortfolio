@@ -1,14 +1,9 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
-import useCursorPosition from '../hooks/useCursorPosition';
-import CursorEffects from './CursorEffects';
 
 export default function HeroSection() {
-    const { x, y } = useCursorPosition();
-
     return (
         <section className="w-full h-screen flex flex-col justify-center items-center relative">
-            <CursorEffects x={x} y={y} />
             <motion.h1
                 className="text-5xl font-bold"
                 initial={{ opacity: 0, y: 20 }}
@@ -21,5 +16,6 @@ export default function HeroSection() {
                 Scroll down to explore my world of development, design, and creativity.
             </p>
         </section>
+
     );
 }

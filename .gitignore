@@ -35,5 +35,7 @@ __MACOSX/
 *.log
 *.node
 
+*.turbo
+
 
 

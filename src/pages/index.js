@@ -9,12 +9,13 @@ import { RocketShake } from '../utils/rocketAnimations';
 import { SmokeSystem } from '../lib/SmokeSystem';
 import RocketLaunchPad from '../components/RocketLaunchPad';
 import RocketSVG from '../components/RocketSVG';
+import { gsap } from "gsap";
+import CustomCursor from '../components/CustomCursor';
 
 function StarsAndPlanets() {
     return (
         <div className="absolute top-0 w-full h-[1000px] pointer-events-none">
-            {/* Placeholder starry sky/planets area */}
-            <div className="w-full h-full bg-[url('/stars.png')] bg-cover" />
+            <div className="w-full h-full bg-[url('/stars.gif')] bg-cover" />
         </div>
     );
 }
@@ -22,27 +23,27 @@ function StarsAndPlanets() {
 function CloudsAndGrass() {
     return (
         <div className="absolute bottom-0 left-0 w-full h-full pointer-events-none">
-            {/* Grass at bottom */}
             <div className="absolute bottom-0 w-full h-[5%] bg-green-700" />
-
-            {/* Clouds above grass */}
-            <div className="absolute bottom-[30%] w-full h-[70%] bg-[url('/clouds.png')] bg-cover" />
+            <div className="absolute top-[75%] left-[10%] w-[19%] h-[5%] bg-[url('/sun.gif')] bg-cover" />
+            <div className="clouds-sprite-U" />
+            <div className="clouds-sprite-M" />
+            <div className="clouds-sprite-L" />
         </div>
     );
 }
-
 
 export default function Home() {
     const gsapRegistered = useRef(false);
     const rocketRef = useRef(null);
     const rocketShakeRef = useRef(null);
     const smokeSystemRef = useRef(null);
+    const scrollTriggersRef = useRef([]);
 
     useEffect(() => {
 
         document.body.style.overflow = 'hidden';
         const updateSizes = () => {
-            const containerHeight = rocketRef.current.clientHeight;
+            const containerHeight = rocketRef.current?.clientHeight || 0;
             if (smokeSystemRef.current) {
                 smokeSystemRef.current.spawnConfig.baseY = containerHeight * 0.68;
             }
@@ -50,42 +51,57 @@ export default function Home() {
         window.addEventListener('resize', updateSizes);
         updateSizes();
 
-        if (typeof window !== 'undefined') {
+        // Initialize GSAP and ScrollTrigger immediately
+        if (typeof window !== 'undefined' && !gsapRegistered.current) {
             const gsap = require('gsap').gsap;
             const { ScrollTrigger } = require('gsap/ScrollTrigger');
+            gsap.registerPlugin(ScrollTrigger);
+            gsapRegistered.current = true;
 
-            if (!gsapRegistered.current) {
-                gsap.registerPlugin(ScrollTrigger);
-                gsapRegistered.current = true;
-
-                gsap.from('.fade-in', {
-                    opacity: 0,
-                    y: 50,
-                    duration: 1,
-                    scrollTrigger: {
-                        trigger: '.fade-in',
-                        start: 'top 80%',
-                        end: 'top 50%',
-                        scrub: true,
+            // Set up ScrollTrigger animations immediately
+            const fadeElements = document.querySelectorAll('.fade-in');
+            fadeElements.forEach((element) => {
+                const trigger = gsap.fromTo(element,
+                    {
+                        opacity: 0,
+                        y: 50
                     },
-                });
-            }
-
-            window.scrollTo(0, 6000);
-
-            // Add cleanup
-            return () => {
-                // document.body.style.overflow = 'auto';
-                window.removeEventListener('resize', updateSizes);
-                if (smokeSystemRef.current) {
-                    smokeSystemRef.current.stop();
-                }
-            };
+                    {
+                        opacity: 1,
+                        y: 0,
+                        duration: 1,
+                        scrollTrigger: {
+                            trigger: element,
+                            start: 'top 80%',
+                            end: 'top 50%',
+                            toggleActions: 'play none none reverse',
+                            scrub: 1,
+                            markers: false, // Keep markers for debugging
+                            invalidateOnRefresh: true
+                        }
+                    }
+                );
+                scrollTriggersRef.current.push(trigger);
+            });
         }
+
+        window.scrollTo(0, 6000);
+
+        return () => {
+            window.removeEventListener('resize', updateSizes);
+            if (smokeSystemRef.current) {
+                smokeSystemRef.current.stop();
+            }
+            // Kill all ScrollTriggers on cleanup
+            scrollTriggersRef.current.forEach(trigger => {
+                if (trigger.scrollTrigger) {
+                    trigger.scrollTrigger.kill();
+                }
+            });
+        };
     }, []);
 
     const handleCountdownComplete = () => {
-
         if (!rocketRef.current || typeof window === 'undefined') return;
 
         const rocketContainerHeight = rocketRef.current.clientHeight;
@@ -95,7 +111,6 @@ export default function Home() {
         }
 
         const smokeCanvas = document.querySelector('.rocket-smoke');
-
         if (!smokeSystemRef.current) {
             smokeSystemRef.current = new SmokeSystem(
                 smokeCanvas,
@@ -104,44 +119,31 @@ export default function Home() {
                     spawnRate: { min: 1, max: 2 },
                     initialRadius: { min: 8, max: 12 },
                 },
-                rocketRef.current // Pass the rocket container reference
+                rocketRef.current
             );
             smokeSystemRef.current.start();
         }
 
-        const gsap= require('gsap').gsap;
+        const gsap = require('gsap').gsap;
         const scrollToPlugin = require('gsap/ScrollToPlugin');
-        gsap.registerPlugin(scrollToPlugin);
+        const { ScrollTrigger } = require('gsap/ScrollTrigger');
+        gsap.registerPlugin(scrollToPlugin, ScrollTrigger);
 
+        // Main animation timeline
         const tl = gsap.timeline({
+            onUpdate: () => {
+                // Refresh ScrollTrigger on each update
+                ScrollTrigger.refresh();
+            },
             onComplete: () => {
                 const finalTl = gsap.timeline({
                     onComplete: () => {
                         setTimeout(() => {
-                            // Only re-enable user scrolling
                             document.body.style.overflow = 'auto';
                             document.body.style.touchAction = 'auto';
                             document.documentElement.style.overflow = 'auto';
-
-                            const { ScrollTrigger } = require('gsap/ScrollTrigger');
-                            gsap.registerPlugin(ScrollTrigger);
-
-                            // Refresh ScrollTrigger
                             ScrollTrigger.refresh();
-
-                            // Reinitialize fade-in animations
-                            gsap.from('.fade-in', {
-                                opacity: 0,
-                                y: 50,
-                                duration: 1,
-                                scrollTrigger: {
-                                    trigger: '.fade-in',
-                                    start: 'top 80%',
-                                    end: 'top 50%',
-                                    scrub: true,
-                                },
-                            });
-                        }, 1000);
+                        }, 100);
                     }
                 });
 
@@ -159,41 +161,36 @@ export default function Home() {
             }
         });
 
-        // Synchronize the page scroll
+        // Synchronize scroll and rocket movement
         tl.to(window, {
             scrollTo: { y: 0 },
             duration: 5,
             ease: 'power2.inOut',
+            onUpdate: () => {
+                // Refresh ScrollTrigger during scroll animation
+                ScrollTrigger.refresh(true);
+            }
         }, 0);
 
-        // Initial rocket movement
         tl.to(rocketRef.current, {
             y: -2 * rocketContainerHeight + 'px',
             duration: 7.2,
             ease: 'power2.inOut'
         }, 0.04);
 
-        // Initial smoke movement in parallel
-
-        // For smoke movement:
         tl.to(smokeSystemRef.current, {
             position: -200 * (rocketContainerHeight / 100),
             duration: 7.4,
             ease: 'power2.inOut'
         }, 0);
-
-
     };
-
-
 
     return (
         <main className="relative w-screen overflow-hidden"
               style={{
                   height: '6000px',
                   background: 'linear-gradient(to top, #87CEEB, #4682B4, #1D3F72, #0B1B34, #0D1845, #000F1E, black)'
-              }}
-        >
+              }}>
             <NavBar />
 
             <div className="absolute top-0 w-full h-screen">
@@ -209,22 +206,9 @@ export default function Home() {
             <CloudsAndGrass />
             <StarsAndPlanets />
 
-            {/*<div className="fixed bottom-0 left-0 w-full flex justify-center">*/}
-            {/*    <RocketLaunchPad/>*/}
-            {/*</div>*/}
             <div className="fixed bottom-0 left-0 w-full flex justify-center">
                 <canvas className="rocket-smoke fixed top-0 left-0 w-full h-full pointer-events-none" />
-
-                {/* The rocket and platform container */}
-                <div
-                    ref={rocketRef}
-                    // className="relative"
-                    // style={{
-                    //     width: 'min(80vw, 80vh)', // Keeps the container a similar size proportionally
-                    //     height: 'min(80vw, 80vh)',
-                    //     transform: 'translateY(0px)',
-                    // }}
-                >
+                <div ref={rocketRef}>
                     <RocketScene />
                 </div>
             </div>
@@ -239,6 +223,7 @@ export default function Home() {
             </div>
 
             <Footer />
+            <CustomCursor />
         </main>
     );
 }
