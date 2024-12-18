@@ -78,14 +78,18 @@
 // src/components/RocketScene.js
 import React, { useEffect, useRef } from 'react';
 import RocketSVG from './RocketSVG';
+import { RocketShake } from '../utils/rocketAnimations'
 
 export default function RocketScene({ onRocketRef }) {
     const mainFlameRef = useRef(null);
     const sideFlame1Ref = useRef(null);
     const sideFlame2Ref = useRef(null);
+    const rocketRef = useRef(null);
     const animationFrameRef = useRef(null);
 
     useEffect(() => {
+        const rocketShake = new RocketShake(rocketRef, 5); // Increased intensity
+        let launchProgress = 0;
         function animateFlames() {
             const time = Date.now() / 200;
 
@@ -106,6 +110,12 @@ export default function RocketScene({ onRocketRef }) {
                 sideFlame2Ref.current.setAttribute('height', side2Height);
             }
 
+            if (rocketRef.current) {
+                launchProgress = Math.min(launchProgress + 0.005, 1); // Simulate launch progress
+                rocketShake.animate(launchProgress);
+            }
+
+
             animationFrameRef.current = requestAnimationFrame(animateFlames);
         }
 
@@ -115,80 +125,83 @@ export default function RocketScene({ onRocketRef }) {
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
             }
+            rocketShake.stop();
         };
     }, []);
 
     return (
-        <svg
-            className="Svg-launch"
-            viewBox="0 0 1000 1000"
-            width="1000"
-            height="1000"
-            preserveAspectRatio="xMidYMid mid"
-        >
-            {/* Existing gradients */}
-            <defs>
-                <linearGradient id="linear-gradient" x1="500" x2="500" y2="1000" gradientUnits="userSpaceOnUse">
-                    <stop offset="0.15" stopColor="#250247"/>
-                    <stop offset="0.55" stopColor="#1305b2"/>
-                    <stop offset="0.8" stopColor="#ff2f92"/>
-                </linearGradient>
+        <div ref={rocketRef} style={{bottom: '20%', left: '50%', transform: 'translateX(-50%)' }}>
+            <svg
+                className="Svg-launch"
+                viewBox="0 0 1000 1000"
+                width="1000"
+                height="1000"
+                preserveAspectRatio="xMidYMid mid"
+            >
+                {/* Existing gradients */}
+                <defs>
+                    <linearGradient id="linear-gradient" x1="500" x2="500" y2="1000" gradientUnits="userSpaceOnUse">
+                        <stop offset="0.15" stopColor="#250247"/>
+                        <stop offset="0.55" stopColor="#1305b2"/>
+                        <stop offset="0.8" stopColor="#ff2f92"/>
+                    </linearGradient>
 
-                <linearGradient id="linear-gradient-2" x1="453" y1="760" x2="453" y2="814" gradientUnits="userSpaceOnUse">
-                    <stop offset="0" stopColor="#ff6d00" stopOpacity="0"/>
-                    <stop offset="0.4" stopColor="#ff6d00"/>
-                </linearGradient>
+                    <linearGradient id="linear-gradient-2" x1="453" y1="760" x2="453" y2="814" gradientUnits="userSpaceOnUse">
+                        <stop offset="0" stopColor="#ff6d00" stopOpacity="0"/>
+                        <stop offset="0.4" stopColor="#ff6d00"/>
+                    </linearGradient>
 
-                <linearGradient id="linear-gradient-3" x1="494" y1="776" x2="494" y2="830" xlinkHref="#linear-gradient-2"/>
-                <linearGradient id="linear-gradient-4" x1="533" x2="533" xlinkHref="#linear-gradient-2"/>
+                    <linearGradient id="linear-gradient-3" x1="494" y1="776" x2="494" y2="830" xlinkHref="#linear-gradient-2"/>
+                    <linearGradient id="linear-gradient-4" x1="533" x2="533" xlinkHref="#linear-gradient-2"/>
 
-                <radialGradient id="radial-gradient" cx="492" cy="674" r="200"
-                                gradientTransform="translate(-98.4 170.8) scale(1.2 0.8)"
-                                gradientUnits="userSpaceOnUse">
-                    <stop offset="0.2" stopColor="#fe0" stopOpacity="0.4"/>
-                    <stop offset="0.55" stopColor="#ff6500" stopOpacity="0.4"/>
-                    <stop offset="1" stopColor="#ff6500" stopOpacity="0"/>
-                </radialGradient>
-            </defs>
+                    <radialGradient id="radial-gradient" cx="492" cy="674" r="200"
+                                    gradientTransform="translate(-98.4 170.8) scale(1.2 0.8)"
+                                    gradientUnits="userSpaceOnUse">
+                        <stop offset="0.2" stopColor="#fe0" stopOpacity="0.4"/>
+                        <stop offset="0.55" stopColor="#ff6500" stopOpacity="0.4"/>
+                        <stop offset="1" stopColor="#ff6500" stopOpacity="0"/>
+                    </radialGradient>
+                </defs>
 
-            {/* Flames */}
-            <g id="rocket-flames">
-                {/* Side flame 1 */}
-                <rect
-                    ref={sideFlame1Ref}
-                    x="443"
-                    y="715"
-                    width="20"
-                    height="109"
-                    rx="10"
-                    fill="url(#linear-gradient-2)"
-                />
+                {/* Flames */}
+                <g id="rocket-flames">
+                    {/* Side flame 1 */}
+                    <rect
+                        ref={sideFlame1Ref}
+                        x="443"
+                        y="715"
+                        width="20"
+                        height="109"
+                        rx="10"
+                        fill="url(#linear-gradient-2)"
+                    />
 
-                {/* Main flame */}
-                <rect
-                    ref={mainFlameRef}
-                    x="484"
-                    y="731"
-                    width="20"
-                    height="109"
-                    rx="10"
-                    fill="url(#linear-gradient-3)"
-                />
+                    {/* Main flame */}
+                    <rect
+                        ref={mainFlameRef}
+                        x="484"
+                        y="731"
+                        width="20"
+                        height="109"
+                        rx="10"
+                        fill="url(#linear-gradient-3)"
+                    />
 
-                {/* Side flame 2 */}
-                <rect
-                    ref={sideFlame2Ref}
-                    x="523"
-                    y="715"
-                    width="20"
-                    height="109"
-                    rx="10"
-                    fill="url(#linear-gradient-4)"
-                />
-            </g>
+                    {/* Side flame 2 */}
+                    <rect
+                        ref={sideFlame2Ref}
+                        x="523"
+                        y="715"
+                        width="20"
+                        height="109"
+                        rx="10"
+                        fill="url(#linear-gradient-4)"
+                    />
+                </g>
 
-            {/* Rocket body */}
-            <RocketSVG />
-        </svg>
+                {/* Rocket body */}
+                <RocketSVG />
+            </svg>
+        </div>
     );
 }

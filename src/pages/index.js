@@ -39,6 +39,8 @@ export default function Home() {
     const smokeSystemRef = useRef(null);
 
     useEffect(() => {
+
+        document.body.style.overflow = 'hidden';
         const updateSizes = () => {
             const containerHeight = rocketRef.current.clientHeight;
             if (smokeSystemRef.current) {
@@ -73,6 +75,7 @@ export default function Home() {
 
             // Add cleanup
             return () => {
+                // document.body.style.overflow = 'auto';
                 window.removeEventListener('resize', updateSizes);
                 if (smokeSystemRef.current) {
                     smokeSystemRef.current.stop();
@@ -82,6 +85,7 @@ export default function Home() {
     }, []);
 
     const handleCountdownComplete = () => {
+
         if (!rocketRef.current || typeof window === 'undefined') return;
 
         const rocketContainerHeight = rocketRef.current.clientHeight;
@@ -111,22 +115,47 @@ export default function Home() {
 
         const tl = gsap.timeline({
             onComplete: () => {
-                // Final exit animation for both rocket and smoke
-                gsap.to(rocketRef.current, {
+                const finalTl = gsap.timeline({
+                    onComplete: () => {
+                        setTimeout(() => {
+                            // Only re-enable user scrolling
+                            document.body.style.overflow = 'auto';
+                            document.body.style.touchAction = 'auto';
+                            document.documentElement.style.overflow = 'auto';
+
+                            const { ScrollTrigger } = require('gsap/ScrollTrigger');
+                            gsap.registerPlugin(ScrollTrigger);
+
+                            // Refresh ScrollTrigger
+                            ScrollTrigger.refresh();
+
+                            // Reinitialize fade-in animations
+                            gsap.from('.fade-in', {
+                                opacity: 0,
+                                y: 50,
+                                duration: 1,
+                                scrollTrigger: {
+                                    trigger: '.fade-in',
+                                    start: 'top 80%',
+                                    end: 'top 50%',
+                                    scrub: true,
+                                },
+                            });
+                        }, 1000);
+                    }
+                });
+
+                finalTl.to(rocketRef.current, {
                     y: '-1000%',
                     duration: 1,
                     ease: 'power2.out'
                 });
 
-                gsap.to(smokeSystemRef.current, {
-                    position: -200 * (window.innerHeight / 100), // Convert percentage to pixels
+                finalTl.to(smokeSystemRef.current, {
+                    position: -200 * (window.innerHeight / 100),
                     duration: 1,
-                    ease: 'power2.out',
-                    // onComplete: () => {
-                    //     rocketShakeRef.current.stop();
-                    //     smokeSystemRef.current.stop();
-                    // }
-                });
+                    ease: 'power2.out'
+                }, '<');
             }
         });
 
@@ -134,7 +163,7 @@ export default function Home() {
         tl.to(window, {
             scrollTo: { y: 0 },
             duration: 5,
-            ease: 'power2.inOut'
+            ease: 'power2.inOut',
         }, 0);
 
         // Initial rocket movement

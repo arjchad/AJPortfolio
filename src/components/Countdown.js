@@ -9,6 +9,20 @@ export default function Countdown({ onComplete }) {
     const containerRef = React.useRef(null);
 
     useEffect(() => {
+        // Scroll to bottom first
+        window.scrollTo(0, 6000);
+        const scrollY = window.scrollY;
+
+        // Lock user scrolling with position: fixed
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${scrollY}px`;
+        document.body.style.width = '100%';
+        document.body.style.overflow = 'hidden';
+        document.body.style.touchAction = 'none';
+        document.documentElement.style.overflow = 'hidden';
+
+
+        // Font loading
         const font = new FontFace(
             'SpaceMono',
             `url('/fonts/SpaceMono-Regular.ttf')`,
@@ -21,6 +35,7 @@ export default function Countdown({ onComplete }) {
             console.error('Font loading failed:', error);
         });
     }, []);
+
 
     useEffect(() => {
         let timer = null;
@@ -68,12 +83,23 @@ export default function Countdown({ onComplete }) {
                 }
             );
         } else if (shouldFade) {
-            // Fade out entire container after showing 0
             gsap.to(containerRef.current, {
                 opacity: 0,
                 duration: 1,
                 ease: 'power2.in',
                 onComplete: () => {
+                    // Restore scroll position before calling onComplete
+                    const scrollY = Math.abs(parseInt(document.body.style.top, 10));
+                    document.body.style.position = '';
+                    document.body.style.top = '';
+                    document.body.style.width = '';
+                    window.scrollTo(0, scrollY);
+
+                    // Keep overflow hidden to prevent user scrolling during animation
+                    document.body.style.overflow = 'hidden';
+                    document.body.style.touchAction = 'none';
+                    document.documentElement.style.overflow = 'hidden';
+
                     onComplete && onComplete();
                 }
             });
@@ -88,7 +114,8 @@ export default function Countdown({ onComplete }) {
             style={{
                 fontFamily: 'SpaceMono, monospace',
                 textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
-                transform: 'translateY(-50%)'
+                transform: 'translateY(-50%)',
+                zIndex: 50
             }}
         >
             <div className="text-6xl font-bold relative"> {/* Increased from text-3xl to text-6xl */}
