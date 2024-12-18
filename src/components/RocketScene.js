@@ -124,7 +124,7 @@ export default function RocketScene({ onRocketRef }) {
             viewBox="0 0 1000 1000"
             width="1000"
             height="1000"
-            preserveAspectRatio="xMidYMid slice"
+            preserveAspectRatio="xMidYMid mid"
         >
             {/* Existing gradients */}
             <defs>

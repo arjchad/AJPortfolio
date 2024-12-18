@@ -33,7 +33,7 @@ class Particle {
 }
 
 export class SmokeSystem {
-    constructor(canvas) {
+    constructor(canvas, spawnConfig = {}, rocketContainer) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.particles = [];
@@ -42,15 +42,24 @@ export class SmokeSystem {
         this.isActive = false;
         this.position = 0;
 
-        // Default spawn configuration
+        this.rocketContainer = rocketContainer; // Reference to the rocket container
+        this.baseHeightRatio = 0.68; // Default ratio (68% of container height)
+
         this.spawnConfig = {
-            baseY: 680,
-            spreadX: 20,
-            spawnRate: { min: 1, max: 2 },
-            initialRadius: { min: 8, max: 12 }
+            baseY: this.calculateBaseY(), // Dynamically calculate the spawn point
+            spreadX: spawnConfig.spreadX || 20,
+            spawnRate: spawnConfig.spawnRate || {min: 1, max: 2},
+            initialRadius: spawnConfig.initialRadius || {min: 8, max: 12},
         };
 
         this.init();
+    }
+
+    calculateBaseY() {
+        // Calculate base spawn position as 68% of the rocket container's height
+        const containerHeight = this.rocketContainer?.clientHeight || 1000;
+        const rect = this.canvas.getBoundingClientRect();
+        return containerHeight * this.baseHeightRatio - (rect.top || 0);
     }
 
     init() {
@@ -58,11 +67,48 @@ export class SmokeSystem {
         window.addEventListener('resize', () => this.resizeCanvas());
     }
 
+    // resizeCanvas() {
+    //     const container = this.rocketContainer;
+    //
+    //     // Set canvas dimensions to match container size
+    //     this.canvas.width = container.clientWidth * window.devicePixelRatio;
+    //     this.canvas.height = container.clientHeight * window.devicePixelRatio;
+    //
+    //     // Calculate uniform scaling based on the smaller dimension
+    //     this.scale = Math.min(this.canvas.width, this.canvas.height) / 1000;
+    //
+    //     // Update base spawn position
+    //     this.spawnConfig.baseY = this.calculateBaseY();
+    // }
+
     resizeCanvas() {
-        const rect = this.canvas.getBoundingClientRect();
-        this.canvas.width = rect.width * window.devicePixelRatio;
-        this.canvas.height = rect.height * window.devicePixelRatio;
-        this.scale = Math.max(this.canvas.width, this.canvas.height) / 1000;
+        const container = this.rocketContainer;
+        const dpr = window.devicePixelRatio;
+
+        // Set canvas dimensions to match container size
+        this.canvas.width = container.clientWidth * dpr;
+        this.canvas.height = window.innerHeight * dpr;
+
+        // Set canvas CSS size
+        this.canvas.style.width = `${container.clientWidth}px`;
+        this.canvas.style.height = `${window.innerHeight}px`;
+        this.canvas.style.left = `50%`; // Move canvas to the center
+        //this.canvas.style.top = `80%`;
+        this.canvas.style.transform = `translate(-50.5%)`;
+
+
+        this.spawnConfig.baseY = this.canvas.height / 1.28; // Move spawn position lower
+
+        // Prevent invisible borders
+        this.canvas.style.overflow = 'visible';
+
+        // Ensure rocket SVG doesn't move vertically
+        const rocketSVG = document.querySelector('.rocket-svg');
+        if (rocketSVG) {
+            rocketSVG.style.position = 'fixed'; // Fix position vertically
+            rocketSVG.style.top = `${window.innerHeight / 2}px`; // Lock vertically to the middle
+            rocketSVG.style.transform = `translateY(-50%)`;
+        }
     }
 
     start() {
@@ -80,8 +126,9 @@ export class SmokeSystem {
 
         const particle = this.pool.length ? this.pool.pop() : new Particle();
 
-        // Use the configurable spawn point and spread
-        const spawnX = x + this.random(-this.spawnConfig.spreadX/2, this.spawnConfig.spreadX/2);
+        // Horizontal spawn around center
+        const spawnX = x + this.random(-this.spawnConfig.spreadX / 2, this.spawnConfig.spreadX / 2);
+        // Vertical spawn using this.spawnConfig.baseY
         const spawnY = (this.spawnConfig.baseY || baseY) + this.position;
 
         particle.init(
@@ -95,8 +142,7 @@ export class SmokeSystem {
 
         const force = this.random(2, 8);
         particle.vx = this.random(-1, 1);
-        particle.vy = Math.cos(0) * force;
-
+        particle.vy = force; // Straight upward (if needed adjust sign)
         this.particles.push(particle);
     }
 
@@ -125,20 +171,20 @@ export class SmokeSystem {
 
         requestAnimationFrame(this.animate);
 
+        // No scaling or translating; draw at native resolution
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
-        this.ctx.scale(this.scale, this.scale);
-        this.ctx.translate(
-            -(1000 - this.canvas.width / this.scale) / 2,
-            -(1000 - this.canvas.height / this.scale) / 2
-        );
-        this.ctx.clearRect(0, 0, 1000, 1000);
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
+        // Center X based on canvas width
+        const centerX = this.canvas.width / 2;
+
+        // Spawn particles at centerX horizontally
         const max = this.random(1, 2);
         for (let i = 0; i < max; i++) {
-            this.spawn(494, 740);
+            this.spawn(centerX, 0); // We'll add baseY inside spawn method
         }
 
         this.update();
         this.draw();
-    }
+    };
 }

@@ -21,14 +21,16 @@ function StarsAndPlanets() {
 
 function CloudsAndGrass() {
     return (
-        <div className="absolute bottom-0 w-full h-[1000px] pointer-events-none">
+        <div className="absolute bottom-0 left-0 w-full h-full pointer-events-none">
             {/* Grass at bottom */}
-            <div className="absolute bottom-0 w-full h-1/3 bg-green-700" />
+            <div className="absolute bottom-0 w-full h-[5%] bg-green-700" />
+
             {/* Clouds above grass */}
-            <div className="absolute top-0 w-full h-2/3 bg-[url('/clouds.png')] bg-cover" />
+            <div className="absolute bottom-[30%] w-full h-[70%] bg-[url('/clouds.png')] bg-cover" />
         </div>
     );
 }
+
 
 export default function Home() {
     const gsapRegistered = useRef(false);
@@ -37,6 +39,15 @@ export default function Home() {
     const smokeSystemRef = useRef(null);
 
     useEffect(() => {
+        const updateSizes = () => {
+            const containerHeight = rocketRef.current.clientHeight;
+            if (smokeSystemRef.current) {
+                smokeSystemRef.current.spawnConfig.baseY = containerHeight * 0.68;
+            }
+        };
+        window.addEventListener('resize', updateSizes);
+        updateSizes();
+
         if (typeof window !== 'undefined') {
             const gsap = require('gsap').gsap;
             const { ScrollTrigger } = require('gsap/ScrollTrigger');
@@ -62,6 +73,7 @@ export default function Home() {
 
             // Add cleanup
             return () => {
+                window.removeEventListener('resize', updateSizes);
                 if (smokeSystemRef.current) {
                     smokeSystemRef.current.stop();
                 }
@@ -72,20 +84,24 @@ export default function Home() {
     const handleCountdownComplete = () => {
         if (!rocketRef.current || typeof window === 'undefined') return;
 
+        const rocketContainerHeight = rocketRef.current.clientHeight;
+
         if (!rocketShakeRef.current) {
             rocketShakeRef.current = new RocketShake(rocketRef);
         }
 
         const smokeCanvas = document.querySelector('.rocket-smoke');
+
         if (!smokeSystemRef.current) {
-            smokeSystemRef.current = new SmokeSystem(smokeCanvas);
-            // Configure smoke position and spread
-            smokeSystemRef.current.spawnConfig = {
-                baseY: 680, // Higher spawn point (adjusted from 740)
-                spreadX: 20, // Control horizontal spread
-                spawnRate: { min: 1, max: 2 }, // Control particle generation rate
-                initialRadius: { min: 8, max: 12 } // Slightly smaller initial particles
-            };
+            smokeSystemRef.current = new SmokeSystem(
+                smokeCanvas,
+                {
+                    spreadX: 20,
+                    spawnRate: { min: 1, max: 2 },
+                    initialRadius: { min: 8, max: 12 },
+                },
+                rocketRef.current // Pass the rocket container reference
+            );
             smokeSystemRef.current.start();
         }
 
@@ -117,21 +133,23 @@ export default function Home() {
         // Synchronize the page scroll
         tl.to(window, {
             scrollTo: { y: 0 },
-            duration: 4.5,
+            duration: 5,
             ease: 'power2.inOut'
         }, 0);
 
         // Initial rocket movement
         tl.to(rocketRef.current, {
-            y: '-400%',
-            duration: 9,
+            y: -2 * rocketContainerHeight + 'px',
+            duration: 7.2,
             ease: 'power2.inOut'
         }, 0.04);
 
         // Initial smoke movement in parallel
+
+        // For smoke movement:
         tl.to(smokeSystemRef.current, {
-            position: -150 * (window.innerHeight / 100), // Convert percentage to pixels
-            duration: 9.3,
+            position: -200 * (rocketContainerHeight / 100),
+            duration: 7.4,
             ease: 'power2.inOut'
         }, 0);
 
@@ -171,12 +189,12 @@ export default function Home() {
                 {/* The rocket and platform container */}
                 <div
                     ref={rocketRef}
-                    className="relative"
-                    style={{
-                        width: '1000px',
-                        height: '1000px',
-                        transform: 'translateY(0px)'
-                    }}
+                    // className="relative"
+                    // style={{
+                    //     width: 'min(80vw, 80vh)', // Keeps the container a similar size proportionally
+                    //     height: 'min(80vw, 80vh)',
+                    //     transform: 'translateY(0px)',
+                    // }}
                 >
                     <RocketScene />
                 </div>
