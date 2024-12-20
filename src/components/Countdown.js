@@ -93,12 +93,11 @@ export default function Countdown({ onComplete }) {
                     document.body.style.position = '';
                     document.body.style.top = '';
                     document.body.style.width = '';
-                    window.scrollTo(0, scrollY);
+                    document.body.style.overflow = '';
+                    document.body.style.touchAction = '';
+                    document.documentElement.style.overflow = '';
 
-                    // Keep overflow hidden to prevent user scrolling during animation
-                    document.body.style.overflow = 'hidden';
-                    document.body.style.touchAction = 'none';
-                    document.documentElement.style.overflow = 'hidden';
+                    window.scrollTo(0, scrollY);
 
                     onComplete && onComplete();
                 }

@@ -148,14 +148,14 @@ export default function Home() {
                 });
 
                 finalTl.to(rocketRef.current, {
-                    y: '-1000%',
-                    duration: 1,
+                    y: '-1500%',
+                    duration: 1.5,
                     ease: 'power2.out'
                 });
 
                 finalTl.to(smokeSystemRef.current, {
-                    position: -200 * (window.innerHeight / 100),
-                    duration: 1,
+                    position: -500 * (window.innerHeight / 100),
+                    duration: 1.5,
                     ease: 'power2.out'
                 }, '<');
             }
@@ -166,11 +166,12 @@ export default function Home() {
             scrollTo: { y: 0 },
             duration: 5,
             ease: 'power2.inOut',
-            onUpdate: () => {
-                // Refresh ScrollTrigger during scroll animation
-                ScrollTrigger.refresh(true);
+            onComplete: () => {
+                ScrollTrigger.refresh();
+                document.body.style.overflow = 'hidden'; // Keep locked during ascent
+                document.body.style.touchAction = 'none';
             }
-        }, 0);
+        });
 
         tl.to(rocketRef.current, {
             y: -2 * rocketContainerHeight + 'px',
@@ -179,8 +180,8 @@ export default function Home() {
         }, 0.04);
 
         tl.to(smokeSystemRef.current, {
-            position: -200 * (rocketContainerHeight / 100),
-            duration: 7.4,
+            position: -400 * (rocketContainerHeight / 100),
+            duration: 6.4,
             ease: 'power2.inOut'
         }, 0);
     };
