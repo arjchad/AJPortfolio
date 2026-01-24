@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background: #000;
+  color: #fff;
+}
+
+/* Form styles */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+textarea {
+  @apply w-full px-4 py-3 bg-neutral-900 border border-neutral-700 rounded-lg text-white placeholder-neutral-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors;
+}
+
+input[type="file"] {
+  @apply w-full px-4 py-3 bg-neutral-900 border border-neutral-700 border-dashed rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-red-600 file:text-white file:cursor-pointer hover:file:bg-red-700 cursor-pointer;
+}
+
+button[type="submit"],
+.btn-primary {
+  @apply px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-secondary {
+  @apply px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-lg transition-colors;
+}
+
+.btn-danger {
+  @apply px-4 py-2 bg-red-900 hover:bg-red-800 text-white rounded-lg transition-colors;
+}
+
+/* Toggle switch */
+.toggle {
+  @apply relative inline-flex h-6 w-11 items-center rounded-full cursor-pointer transition-colors;
+}
+
+.toggle-enabled {
+  @apply bg-red-600;
+}
+
+.toggle-disabled {
+  @apply bg-neutral-700;
+}
+
+.toggle-dot {
+  @apply inline-block h-4 w-4 transform rounded-full bg-white transition-transform;
+}
+
+.toggle-dot-enabled {
+  @apply translate-x-6;
+}
+
+.toggle-dot-disabled {
+  @apply translate-x-1;
+}

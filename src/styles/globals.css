@@ -2,63 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
-* {
-    cursor: none !important;
+/* Compacta Black Poster font - place font file in /public/fonts/ */
+@font-face {
+    font-family: 'Compacta Black Poster';
+    src: url('/fonts/CompactaBlackPoster.ttf') format('truetype'),
+         url('/fonts/CompactaBlackPoster.otf') format('opentype'),
+         url('/fonts/CompactaBlackPoster.woff') format('woff'),
+         url('/fonts/CompactaBlackPoster.woff2') format('woff2');
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
 }
 
-/* Additional global styles */
+/* Global styles */
 body {
-    overflow-x: hidden;
-    background: #0d0d0d;
-    color: #f0f0f0;
-    font-family: sans-serif;
-
-}
-/* Example of a scroll-timeline-driven animation */
-@container query(supports: scroll-timeline) {
-    /* Insert experimental scroll-timeline CSS if needed */
+    background: #000000;
+    color: #ffffff;
 }
 
-.clouds-sprite-U {
-    position: absolute;
-    top: 79.25%;
-    left: 0;
-    width: 200%; /* Twice the width to accommodate the wrap */
-    height: 11%;
-    background-image: url('/cloudsSprite-U.png'); /* Path to your horizontal sprite sheet */
-    background-size: auto 10%; /* Fit height, maintain aspect ratio */
-    background-repeat: repeat-x; /* Repeat the image horizontally */
-    animation: scrollClouds 1570s linear infinite; /* Smooth infinite animation */
-}
-.clouds-sprite-M {
-    position: absolute;
-    top: 80%;
-    left: 0;
-    width: 200%; /* Twice the width to accommodate the wrap */
-    height: 20%;
-    background-image: url('/cloudsSprite-M.png'); /* Path to your horizontal sprite sheet */
-    background-size: auto 10%; /* Fit height, maintain aspect ratio */
-    background-repeat: repeat-x; /* Repeat the image horizontally */
-    animation: scrollClouds 1370s linear infinite; /* Smooth infinite animation */
-}
-.clouds-sprite-L {
-    position: absolute;
-    top: 81.75%;
-    left: 0;
-    width: 200%; /* Twice the width to accommodate the wrap */
-    height: 8%;
-    background-image: url('/cloudsSprite-L.png'); /* Path to your horizontal sprite sheet */
-    background-size: auto 10%; /* Fit height, maintain aspect ratio */
-    background-repeat: repeat-x; /* Repeat the image horizontally */
-    animation: scrollClouds 820s linear infinite; /* Smooth infinite animation */
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
 }
 
-
-@keyframes scrollClouds {
-    from {
-        background-position-x: 0; /* Start position */
-    }
-    to {
-        background-position-x: -100%; /* Move by the full width of the sprite */
-    }
+/* Selection color */
+::selection {
+    background: rgba(220, 38, 38, 0.3);
+    color: #ffffff;
 }
