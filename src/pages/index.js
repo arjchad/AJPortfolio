@@ -42,14 +42,6 @@ export default function Home() {
     useEffect(() => {
 
         document.body.style.overflow = 'hidden';
-        const updateSizes = () => {
-            const containerHeight = rocketRef.current?.clientHeight || 0;
-            if (smokeSystemRef.current) {
-                smokeSystemRef.current.spawnConfig.baseY = containerHeight * 0.68;
-            }
-        };
-        window.addEventListener('resize', updateSizes);
-        updateSizes();
 
         // Initialize GSAP and ScrollTrigger immediately
         if (typeof window !== 'undefined' && !gsapRegistered.current) {
@@ -88,7 +80,6 @@ export default function Home() {
         window.scrollTo(0, 6000);
 
         return () => {
-            window.removeEventListener('resize', updateSizes);
             if (smokeSystemRef.current) {
                 smokeSystemRef.current.stop();
             }
@@ -152,12 +143,6 @@ export default function Home() {
                     duration: 1.5,
                     ease: 'power2.out'
                 });
-
-                finalTl.to(smokeSystemRef.current, {
-                    position: -500 * (window.innerHeight / 100),
-                    duration: 1.5,
-                    ease: 'power2.out'
-                }, '<');
             }
         });
 
@@ -178,12 +163,7 @@ export default function Home() {
             duration: 7.2,
             ease: 'power2.inOut'
         }, 0.04);
-
-        tl.to(smokeSystemRef.current, {
-            position: -400 * (rocketContainerHeight / 100),
-            duration: 6.4,
-            ease: 'power2.inOut'
-        }, 0);
+        // Smoke now automatically tracks the rocket's position via getBoundingClientRect
     };
 
     return (
@@ -208,7 +188,7 @@ export default function Home() {
             <StarsAndPlanets />
 
             <div className="fixed bottom-0 left-0 w-full flex justify-center">
-                <canvas className="rocket-smoke fixed top-0 left-0 w-full h-full pointer-events-none" />
+                <canvas className="rocket-smoke fixed top-0 left-0 pointer-events-none" style={{ zIndex: 10 }} />
                 <div ref={rocketRef}>
                     <RocketScene />
                 </div>

@@ -33,7 +33,7 @@ class Particle {
 }
 
 export class SmokeSystem {
-    constructor(canvas, spawnConfig = {}, rocketContainer) {
+    constructor(canvas, spawnConfig = {}, rocketContainer, rocketSvgElement = null) {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.particles = [];
@@ -43,10 +43,9 @@ export class SmokeSystem {
         this.position = 0;
 
         this.rocketContainer = rocketContainer; // Reference to the rocket container
-        this.baseHeightRatio = 0.68; // Default ratio (68% of container height)
+        this.rocketSvgElement = rocketSvgElement; // Reference to the actual rocket SVG for position tracking
 
         this.spawnConfig = {
-            baseY: this.calculateBaseY(), // Dynamically calculate the spawn point
             spreadX: spawnConfig.spreadX || 20,
             spawnRate: spawnConfig.spawnRate || {min: 1, max: 2},
             initialRadius: spawnConfig.initialRadius || {min: 8, max: 12},
@@ -55,11 +54,39 @@ export class SmokeSystem {
         this.init();
     }
 
-    calculateBaseY() {
-        // Calculate base spawn position as 68% of the rocket container's height
-        const containerHeight = this.rocketContainer?.clientHeight || 1000;
-        const rect = this.canvas.getBoundingClientRect();
-        return containerHeight * this.baseHeightRatio - (rect.top || 0);
+    // Set the rocket SVG element for position tracking
+    setRocketElement(element) {
+        this.rocketSvgElement = element;
+    }
+
+    // Get the rocket's bottom position in canvas coordinates
+    getRocketBottomPosition() {
+        if (!this.rocketSvgElement) {
+            // Fallback: try to find the rocket SVG in the DOM
+            this.rocketSvgElement = document.querySelector('.Svg-launch');
+        }
+
+        if (this.rocketSvgElement) {
+            const rocketRect = this.rocketSvgElement.getBoundingClientRect();
+            const canvasRect = this.canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio;
+
+            // Calculate the bottom center of the rocket relative to canvas
+            // The flames are at roughly 75-80% down the SVG viewBox (y ~730 out of 1000)
+            const flameYRatio = 0.78;
+            const rocketFlameY = rocketRect.top + (rocketRect.height * flameYRatio);
+
+            return {
+                x: (rocketRect.left + rocketRect.width / 2 - canvasRect.left) * dpr,
+                y: (rocketFlameY - canvasRect.top) * dpr
+            };
+        }
+
+        // Fallback to center of canvas
+        return {
+            x: this.canvas.width / 2,
+            y: this.canvas.height * 0.78
+        };
     }
 
     init() {
@@ -67,48 +94,22 @@ export class SmokeSystem {
         window.addEventListener('resize', () => this.resizeCanvas());
     }
 
-    // resizeCanvas() {
-    //     const container = this.rocketContainer;
-    //
-    //     // Set canvas dimensions to match container size
-    //     this.canvas.width = container.clientWidth * window.devicePixelRatio;
-    //     this.canvas.height = container.clientHeight * window.devicePixelRatio;
-    //
-    //     // Calculate uniform scaling based on the smaller dimension
-    //     this.scale = Math.min(this.canvas.width, this.canvas.height) / 1000;
-    //
-    //     // Update base spawn position
-    //     this.spawnConfig.baseY = this.calculateBaseY();
-    // }
-
     resizeCanvas() {
-        const container = this.rocketContainer;
         const dpr = window.devicePixelRatio;
 
-        // Set canvas dimensions to match container size
-        this.canvas.width = container.clientWidth * dpr;
+        // Set canvas to cover full viewport
+        this.canvas.width = window.innerWidth * dpr;
         this.canvas.height = window.innerHeight * dpr;
 
-        // Set canvas CSS size
-        this.canvas.style.width = `${container.clientWidth}px`;
+        // Set canvas CSS size to match viewport
+        this.canvas.style.width = `${window.innerWidth}px`;
         this.canvas.style.height = `${window.innerHeight}px`;
-        this.canvas.style.left = `50%`; // Move canvas to the center
-        //this.canvas.style.top = `80%`;
-        this.canvas.style.transform = `translate(-50.5%)`;
-
-
-        this.spawnConfig.baseY = this.canvas.height / 1.28; // Move spawn position lower
+        this.canvas.style.left = '0';
+        this.canvas.style.top = '0';
+        this.canvas.style.transform = 'none';
 
         // Prevent invisible borders
         this.canvas.style.overflow = 'visible';
-
-        // Ensure rocket SVG doesn't move vertically
-        const rocketSVG = document.querySelector('.rocket-svg');
-        if (rocketSVG) {
-            rocketSVG.style.position = 'fixed'; // Fix position vertically
-            rocketSVG.style.top = `${window.innerHeight / 2}px`; // Lock vertically to the middle
-            rocketSVG.style.transform = `translateY(-50%)`;
-        }
     }
 
     start() {
@@ -120,16 +121,15 @@ export class SmokeSystem {
         this.isActive = false;
     }
 
-    spawn(x, baseY) {
+    spawn(rocketPos) {
         if (this.particles.length >= this.MAX_PARTICLES)
             this.pool.push(this.particles.shift());
 
         const particle = this.pool.length ? this.pool.pop() : new Particle();
 
-        // Horizontal spawn around center
-        const spawnX = x + this.random(-this.spawnConfig.spreadX / 2, this.spawnConfig.spreadX / 2);
-        // Vertical spawn using this.spawnConfig.baseY
-        const spawnY = (this.spawnConfig.baseY || baseY) + this.position;
+        // Spawn at rocket's flame position with slight horizontal spread
+        const spawnX = rocketPos.x + this.random(-this.spawnConfig.spreadX / 2, this.spawnConfig.spreadX / 2);
+        const spawnY = rocketPos.y;
 
         particle.init(
             spawnX,
@@ -142,7 +142,7 @@ export class SmokeSystem {
 
         const force = this.random(2, 8);
         particle.vx = this.random(-1, 1);
-        particle.vy = force; // Straight upward (if needed adjust sign)
+        particle.vy = force; // Particles move downward (positive Y is down in canvas)
         this.particles.push(particle);
     }
 
@@ -175,13 +175,13 @@ export class SmokeSystem {
         this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Center X based on canvas width
-        const centerX = this.canvas.width / 2;
+        // Get the rocket's current position (tracks it as it moves)
+        const rocketPos = this.getRocketBottomPosition();
 
-        // Spawn particles at centerX horizontally
+        // Spawn particles at the rocket's flame position
         const max = this.random(1, 2);
         for (let i = 0; i < max; i++) {
-            this.spawn(centerX, 0); // We'll add baseY inside spawn method
+            this.spawn(rocketPos);
         }
 
         this.update();
