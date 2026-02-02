@@ -5,6 +5,52 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { Photo } from "@/types/database";
 
+const MAX_WIDTH = 1920;
+const MAX_HEIGHT = 1920;
+const QUALITY = 1.0;
+
+async function compressImage(file: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { width, height } = img;
+
+      // Calculate new dimensions maintaining aspect ratio
+      if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+        const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Failed to get canvas context"));
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(blob);
+          } else {
+            reject(new Error("Failed to compress image"));
+          }
+        },
+        "image/jpeg",
+        QUALITY
+      );
+    };
+    img.onerror = () => reject(new Error("Failed to load image"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
 export default function AdminPage() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,16 +104,18 @@ export default function AdminPage() {
     setSuccess(null);
 
     try {
-      // Generate unique filename
-      const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}.${fileExt}`;
+      // Compress image before upload
+      const compressedBlob = await compressImage(file);
+
+      // Generate unique filename (always jpg after compression)
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}.jpg`;
       const filePath = `display/${fileName}`;
 
       // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from("portfolio")
-        .upload(filePath, file, {
-          contentType: file.type,
+        .upload(filePath, compressedBlob, {
+          contentType: "image/jpeg",
           upsert: false,
         });
 
@@ -245,7 +293,7 @@ export default function AdminPage() {
             </div>
 
             <button type="submit" disabled={uploading || !file}>
-              {uploading ? "Uploading..." : "Upload Photo"}
+              {uploading ? "Compressing & Uploading..." : "Upload Photo"}
             </button>
           </form>
         </div>
