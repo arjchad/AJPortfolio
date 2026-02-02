@@ -101,41 +101,65 @@ ALTER DATABASE postgres SET app.allowed_admin_email = 'your-email@example.com';
 
 ### 5. Set Up Storage Policies
 
-Go to **Storage → Policies** for the `portfolio` bucket and create these policies:
+Go to **Storage → Policies** for the `portfolio` bucket. Click **New policy** for each of the following:
 
-**Policy 1: Public Read (for display folder)**
-```sql
--- Allow public to read files in display folder
-CREATE POLICY "Public can view display photos"
-  ON storage.objects
-  FOR SELECT
-  USING (bucket_id = 'portfolio' AND (storage.foldername(name))[1] = 'display');
-```
+---
+
+**Policy 1: Public Read**
+
+| Field | Value |
+|-------|-------|
+| Policy name | `Public can view display photos` |
+| Allowed operation | `SELECT` |
+| Additional operations | Check: `download`, `list`, `getPublicUrl` |
+| Target roles | `anon` (or leave as default for public) |
+| Policy definition | `bucket_id = 'portfolio' AND (storage.foldername(name))[1] = 'display'` |
+
+---
 
 **Policy 2: Admin Upload**
-```sql
--- Allow admin to upload
-CREATE POLICY "Admin can upload photos"
-  ON storage.objects
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    bucket_id = 'portfolio'
-    AND auth.jwt() ->> 'email' = current_setting('app.allowed_admin_email', true)
-  );
-```
+
+| Field | Value |
+|-------|-------|
+| Policy name | `Admin can upload photos` |
+| Allowed operation | `INSERT` |
+| Additional operations | Check: `upload` |
+| Target roles | `authenticated` |
+| Policy definition | `bucket_id = 'portfolio' AND auth.jwt() ->> 'email' = current_setting('app.allowed_admin_email', true)` |
+
+---
 
 **Policy 3: Admin Delete**
+
+| Field | Value |
+|-------|-------|
+| Policy name | `Admin can delete photos` |
+| Allowed operation | `DELETE` |
+| Additional operations | Check: `remove` |
+| Target roles | `authenticated` |
+| Policy definition | `bucket_id = 'portfolio' AND auth.jwt() ->> 'email' = current_setting('app.allowed_admin_email', true)` |
+
+---
+
+**Alternative: Run via SQL Editor**
+
+If you prefer SQL, run this in the SQL Editor instead:
+
 ```sql
--- Allow admin to delete
+-- Public read for display folder
+CREATE POLICY "Public can view display photos"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'portfolio' AND (storage.foldername(name))[1] = 'display');
+
+-- Admin upload
+CREATE POLICY "Admin can upload photos"
+  ON storage.objects FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'portfolio' AND auth.jwt() ->> 'email' = current_setting('app.allowed_admin_email', true));
+
+-- Admin delete
 CREATE POLICY "Admin can delete photos"
-  ON storage.objects
-  FOR DELETE
-  TO authenticated
-  USING (
-    bucket_id = 'portfolio'
-    AND auth.jwt() ->> 'email' = current_setting('app.allowed_admin_email', true)
-  );
+  ON storage.objects FOR DELETE TO authenticated
+  USING (bucket_id = 'portfolio' AND auth.jwt() ->> 'email' = current_setting('app.allowed_admin_email', true));
 ```
 
 ### 6. Create Admin User

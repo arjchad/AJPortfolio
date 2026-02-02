@@ -60,7 +60,7 @@ export default function AdminPage() {
     try {
       // Generate unique filename
       const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}.${fileExt}`;
       const filePath = `display/${fileName}`;
 
       // Upload to Supabase Storage
