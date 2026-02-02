@@ -149,7 +149,7 @@ export default function AdminPage() {
       setDescription("");
       setPublished(false);
       setSuccess("Photo uploaded successfully!");
-
+      // Comment to commit
       // Reset file input
       const fileInput = document.getElementById("file-input") as HTMLInputElement;
       if (fileInput) fileInput.value = "";
