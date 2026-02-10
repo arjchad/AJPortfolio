@@ -4,6 +4,8 @@ import Image from "next/image";
 
 export const revalidate = 60; // Revalidate every 60 seconds
 
+const TOTAL_COLS = 30;
+
 async function getPublishedPhotos(): Promise<Photo[]> {
   const supabase = await createClient();
 
@@ -21,62 +23,194 @@ async function getPublishedPhotos(): Promise<Photo[]> {
   return data || [];
 }
 
-function getGridClasses(size: PhotoSize, orientation: PhotoOrientation): string {
+function getBaseColSpan(size: PhotoSize, orientation: PhotoOrientation): number {
   if (orientation === "vertical") {
-    // Vertical images (10-col grid: 2=20%, 3=30%, 4=40%)
+    // Vertical: S=6, M=9, L=12
     switch (size) {
-      case "small":
-        return "md:col-span-2 lg:col-span-2";
-      case "medium":
-        return "md:col-span-2 lg:col-span-3";
-      case "large":
-        return "md:col-span-3 lg:col-span-4";
-      default:
-        return "md:col-span-2 lg:col-span-3";
+      case "small": return 6;
+      case "medium": return 9;
+      case "large": return 12;
+      default: return 9;
     }
   } else {
-    // Horizontal images (10-col grid: 3=30%, 5=50%, 7=70%)
+    // Horizontal: S=9, M=15, L=21
     switch (size) {
-      case "small":
-        return "md:col-span-3 lg:col-span-3";
-      case "medium":
-        return "md:col-span-3 lg:col-span-5";
-      case "large":
-        return "md:col-span-4 lg:col-span-7";
-      default:
-        return "md:col-span-3 lg:col-span-3";
+      case "small": return 9;
+      case "medium": return 15;
+      case "large": return 21;
+      default: return 9;
     }
   }
 }
 
+interface LayoutItem {
+  photo: Photo;
+  colSpan: number;
+  rowSpan: number;
+}
+
+interface PhotoWithSpan {
+  photo: Photo;
+  baseSpan: number;
+  rowSpan: number;
+}
+
+// Calculate row span based on column span and aspect ratio
+// Using base row unit of 10px, scaled to create proper proportions
+function calculateRowSpan(colSpan: number, orientation: PhotoOrientation): number {
+  // Assume 3:2 aspect ratio for horizontal, 2:3 for vertical
+  // Row span = (colSpan * aspectHeight / aspectWidth) * scale factor
+  const baseUnit = 10; // Each row is 10px
+  const colWidth = 100 / TOTAL_COLS; // Each column is ~3.33% of width
+
+  if (orientation === "vertical") {
+    // 2:3 aspect ratio (taller than wide)
+    // For every 2 units wide, 3 units tall
+    return Math.round(colSpan * 1.5 * 3); // Scale factor of 3 for reasonable sizing
+  } else {
+    // 3:2 aspect ratio (wider than tall)
+    // For every 3 units wide, 2 units tall
+    return Math.round(colSpan * 0.67 * 3);
+  }
+}
+
+function calculateLayout(photos: Photo[]): LayoutItem[] {
+  // Calculate base spans for all photos
+  const items: PhotoWithSpan[] = photos.map(photo => {
+    const orientation = photo.orientation || "horizontal";
+    const baseSpan = getBaseColSpan(photo.display_size, orientation);
+    return {
+      photo,
+      baseSpan,
+      rowSpan: calculateRowSpan(baseSpan, orientation),
+    };
+  });
+
+  // Bin-packing: greedily fill rows to exactly 30 columns
+  const result: LayoutItem[] = [];
+  const used = new Set<number>();
+
+  while (used.size < items.length) {
+    const row = fillRow(items, used, TOTAL_COLS);
+    result.push(...row);
+  }
+
+  return result;
+}
+
+function fillRow(items: PhotoWithSpan[], used: Set<number>, target: number): LayoutItem[] {
+  const row: LayoutItem[] = [];
+  let remaining = target;
+
+  // Try to find exact fits first, then best fits
+  while (remaining > 0) {
+    const bestIdx = findBestFit(items, used, remaining);
+
+    if (bestIdx === -1) {
+      // No more items fit - expand last item to fill gap
+      if (row.length > 0) {
+        row[row.length - 1].colSpan += remaining;
+      }
+      break;
+    }
+
+    const item = items[bestIdx];
+    used.add(bestIdx);
+
+    // Adjust span if item is slightly too big (contract by up to 1)
+    let span = item.baseSpan;
+    if (span > remaining && span - 1 >= remaining) {
+      span = remaining;
+    } else if (span > remaining) {
+      // Item too big, expand previous items and break
+      if (row.length > 0) {
+        row[row.length - 1].colSpan += remaining;
+      }
+      // Put this item back for next row
+      used.delete(bestIdx);
+      break;
+    }
+
+    row.push({ photo: item.photo, colSpan: span, rowSpan: item.rowSpan });
+    remaining -= span;
+  }
+
+  return row;
+}
+
+function findBestFit(items: PhotoWithSpan[], used: Set<number>, remaining: number): number {
+  let bestIdx = -1;
+  let bestDiff = Infinity;
+
+  for (let i = 0; i < items.length; i++) {
+    if (used.has(i)) continue;
+
+    const span = items[i].baseSpan;
+
+    // Exact fit is best
+    if (span === remaining) {
+      return i;
+    }
+
+    // Prefer items that fit without needing adjustment
+    if (span <= remaining) {
+      const diff = remaining - span;
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestIdx = i;
+      }
+    }
+
+    // Allow contracting by 1 if nothing else fits
+    if (bestIdx === -1 && span === remaining + 1) {
+      bestIdx = i;
+      bestDiff = 1;
+    }
+  }
+
+  return bestIdx;
+}
+
 function getSizes(size: PhotoSize, orientation: PhotoOrientation): string {
   if (orientation === "vertical") {
-    // Vertical: small=20%, medium=30%, large=40%
+    // Vertical: S=20%, M=30%, L=40%
     switch (size) {
-      case "large":
-        return "(max-width: 768px) 50vw, 40vw";
-      case "small":
-        return "(max-width: 768px) 33vw, 20vw";
-      default:
-        return "(max-width: 768px) 33vw, 30vw";
+      case "large": return "(max-width: 768px) 50vw, 40vw";
+      case "small": return "(max-width: 768px) 33vw, 20vw";
+      default: return "(max-width: 768px) 33vw, 30vw";
     }
   } else {
-    // Horizontal: small=30%, medium=50%, large=70%
+    // Horizontal: S=30%, M=50%, L=70%
     switch (size) {
-      case "large":
-        return "(max-width: 768px) 66vw, 70vw";
-      case "medium":
-        return "(max-width: 768px) 50vw, 50vw";
-      case "small":
-        return "(max-width: 768px) 50vw, 30vw";
-      default:
-        return "(max-width: 768px) 50vw, 30vw";
+      case "large": return "(max-width: 768px) 66vw, 70vw";
+      case "medium": return "(max-width: 768px) 50vw, 50vw";
+      default: return "(max-width: 768px) 50vw, 30vw";
+    }
+  }
+}
+
+// Generate md breakpoint col spans (using 18 columns on tablet)
+function getMdColSpan(size: PhotoSize, orientation: PhotoOrientation): number {
+  if (orientation === "vertical") {
+    switch (size) {
+      case "small": return 4;
+      case "medium": return 6;
+      case "large": return 8;
+      default: return 6;
+    }
+  } else {
+    switch (size) {
+      case "small": return 6;
+      case "medium": return 9;
+      case "large": return 12;
+      default: return 6;
     }
   }
 }
 
 export default async function GalleryPage() {
   const photos = await getPublishedPhotos();
+  const layoutItems = calculateLayout(photos);
 
   return (
     <main className="min-h-screen">
@@ -118,37 +252,46 @@ export default async function GalleryPage() {
             No photos published yet. Check back soon!
           </p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-10 gap-4 items-start">
-            {photos.map((photo) => (
-              <div
-                key={photo.id}
-                className={`group relative overflow-hidden rounded-lg bg-neutral-900 ${getGridClasses(photo.display_size, photo.orientation || "horizontal")}`}
-              >
-                <Image
-                  src={photo.display_url}
-                  alt={photo.title || "Photo"}
-                  width={1200}
-                  height={800}
-                  sizes={getSizes(photo.display_size, photo.orientation || "horizontal")}
-                  className="w-full h-auto transition-transform duration-500 group-hover:scale-105"
-                  unoptimized
-                />
-                {(photo.title || photo.description) && (
-                  <div className="absolute inset-0 flex items-end opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <div className="w-full p-4 bg-gradient-to-t from-black/80 to-transparent">
-                      {photo.title && (
-                        <h3 className="font-medium text-white">{photo.title}</h3>
-                      )}
-                      {photo.description && (
-                        <p className="text-sm text-neutral-300">
-                          {photo.description}
-                        </p>
-                      )}
+          <div className="grid grid-cols-1 md:grid-cols-18 lg:grid-cols-30 gap-4 auto-rows-[10px]">
+            {layoutItems.map(({ photo, colSpan, rowSpan }) => {
+              const orientation = photo.orientation || "horizontal";
+              const mdSpan = getMdColSpan(photo.display_size, orientation);
+
+              return (
+                <div
+                  key={photo.id}
+                  className={`group relative overflow-hidden rounded-lg bg-neutral-900`}
+                  style={{
+                    gridColumn: `span ${colSpan}`,
+                    gridRow: `span ${rowSpan}`,
+                  }}
+                  data-md-span={mdSpan}
+                >
+                  <Image
+                    src={photo.display_url}
+                    alt={photo.title || "Photo"}
+                    fill
+                    sizes={getSizes(photo.display_size, orientation)}
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    unoptimized
+                  />
+                  {(photo.title || photo.description) && (
+                    <div className="absolute inset-0 flex items-end opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div className="w-full p-4 bg-gradient-to-t from-black/80 to-transparent">
+                        {photo.title && (
+                          <h3 className="font-medium text-white">{photo.title}</h3>
+                        )}
+                        {photo.description && (
+                          <p className="text-sm text-neutral-300">
+                            {photo.description}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
