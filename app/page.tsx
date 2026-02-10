@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Photo } from "@/types/database";
+import type { Photo, PhotoSize, PhotoOrientation } from "@/types/database";
 import Image from "next/image";
 
 export const revalidate = 60; // Revalidate every 60 seconds
@@ -11,7 +11,7 @@ async function getPublishedPhotos(): Promise<Photo[]> {
     .from("photos")
     .select("*")
     .eq("published", true)
-    .order("created_at", { ascending: false });
+    .order("sort_order", { ascending: true });
 
   if (error) {
     console.error("Error fetching photos:", error);
@@ -19,6 +19,60 @@ async function getPublishedPhotos(): Promise<Photo[]> {
   }
 
   return data || [];
+}
+
+function getGridClasses(size: PhotoSize, orientation: PhotoOrientation): string {
+  if (orientation === "vertical") {
+    // Vertical images (10-col grid: 2=20%, 3=30%, 4=40%)
+    switch (size) {
+      case "small":
+        return "md:col-span-2 lg:col-span-2";
+      case "medium":
+        return "md:col-span-2 lg:col-span-3";
+      case "large":
+        return "md:col-span-3 lg:col-span-4";
+      default:
+        return "md:col-span-2 lg:col-span-3";
+    }
+  } else {
+    // Horizontal images (10-col grid: 3=30%, 5=50%, 7=70%)
+    switch (size) {
+      case "small":
+        return "md:col-span-3 lg:col-span-3";
+      case "medium":
+        return "md:col-span-3 lg:col-span-5";
+      case "large":
+        return "md:col-span-4 lg:col-span-7";
+      default:
+        return "md:col-span-3 lg:col-span-3";
+    }
+  }
+}
+
+function getSizes(size: PhotoSize, orientation: PhotoOrientation): string {
+  if (orientation === "vertical") {
+    // Vertical: small=20%, medium=30%, large=40%
+    switch (size) {
+      case "large":
+        return "(max-width: 768px) 50vw, 40vw";
+      case "small":
+        return "(max-width: 768px) 33vw, 20vw";
+      default:
+        return "(max-width: 768px) 33vw, 30vw";
+    }
+  } else {
+    // Horizontal: small=30%, medium=50%, large=70%
+    switch (size) {
+      case "large":
+        return "(max-width: 768px) 66vw, 70vw";
+      case "medium":
+        return "(max-width: 768px) 50vw, 50vw";
+      case "small":
+        return "(max-width: 768px) 50vw, 30vw";
+      default:
+        return "(max-width: 768px) 50vw, 30vw";
+    }
+  }
 }
 
 export default async function GalleryPage() {
@@ -64,19 +118,21 @@ export default async function GalleryPage() {
             No photos published yet. Check back soon!
           </p>
         ) : (
-          <div className="columns-1 md:columns-2 lg:columns-3 gap-4 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 lg:grid-cols-10 gap-4 items-start">
             {photos.map((photo) => (
-              <div key={photo.id} className="break-inside-avoid group relative">
-                <div className="overflow-hidden rounded-lg bg-neutral-900">
-                  <Image
-                    src={photo.display_url}
-                    alt={photo.title || "Photo"}
-                    width={800}
-                    height={600}
-                    className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
-                    unoptimized
-                  />
-                </div>
+              <div
+                key={photo.id}
+                className={`group relative overflow-hidden rounded-lg bg-neutral-900 ${getGridClasses(photo.display_size, photo.orientation || "horizontal")}`}
+              >
+                <Image
+                  src={photo.display_url}
+                  alt={photo.title || "Photo"}
+                  width={1200}
+                  height={800}
+                  sizes={getSizes(photo.display_size, photo.orientation || "horizontal")}
+                  className="w-full h-auto transition-transform duration-500 group-hover:scale-105"
+                  unoptimized
+                />
                 {(photo.title || photo.description) && (
                   <div className="absolute inset-0 flex items-end opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <div className="w-full p-4 bg-gradient-to-t from-black/80 to-transparent">
@@ -84,7 +140,9 @@ export default async function GalleryPage() {
                         <h3 className="font-medium text-white">{photo.title}</h3>
                       )}
                       {photo.description && (
-                        <p className="text-sm text-neutral-300">{photo.description}</p>
+                        <p className="text-sm text-neutral-300">
+                          {photo.description}
+                        </p>
                       )}
                     </div>
                   </div>

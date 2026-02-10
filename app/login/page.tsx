@@ -15,7 +15,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     // Check for unauthorized error from middleware
-    if (searchParams.get("error") === "unauthorized") {
+    if (searchParams?.get("error") === "unauthorized") {
       setError("Unauthorized: You do not have admin access.");
       // Sign out the unauthorized user
       supabase.auth.signOut();
