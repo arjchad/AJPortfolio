@@ -107,39 +107,54 @@ export default function AdminPage() {
       // Compress image before upload
       const compressedBlob = await compressImage(file);
 
+      // Convert blob to base64 for API upload
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(compressedBlob);
+      });
+
       // Generate unique filename (always jpg after compression)
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}.jpg`;
-      const filePath = `display/${fileName}`;
 
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from("portfolio")
-        .upload(filePath, compressedBlob, {
-          contentType: "image/jpeg",
-          upsert: false,
-        });
+      // Upload to Backblaze B2 via API
+      const uploadResponse = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          file: base64,
+          fileName,
+          contentType: 'image/jpeg',
+        }),
+      });
 
-      if (uploadError) {
-        throw new Error(`Upload failed: ${uploadError.message}`);
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json();
+        throw new Error(`Upload failed: ${errorData.error || 'Unknown error'}`);
       }
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from("portfolio")
-        .getPublicUrl(filePath);
+      const { key, url } = await uploadResponse.json();
 
       // Insert into database
       const { error: dbError } = await supabase.from("photos").insert({
         title: title || null,
         description: description || null,
-        display_path: filePath,
-        display_url: urlData.publicUrl,
+        display_path: key,
+        display_url: url,
         published,
       });
 
       if (dbError) {
         // Clean up uploaded file if DB insert fails
-        await supabase.storage.from("portfolio").remove([filePath]);
+        await fetch('/api/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key }),
+        });
         throw new Error(`Database error: ${dbError.message}`);
       }
 
@@ -179,13 +194,15 @@ export default function AdminPage() {
     if (!confirm("Are you sure you want to delete this photo?")) return;
 
     try {
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
-        .from("portfolio")
-        .remove([photo.display_path]);
+      // Delete from Backblaze B2 storage
+      const deleteResponse = await fetch('/api/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: photo.display_path }),
+      });
 
-      if (storageError) {
-        console.error("Storage delete error:", storageError);
+      if (!deleteResponse.ok) {
+        console.error("Storage delete error");
       }
 
       // Delete from database
